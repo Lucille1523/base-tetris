@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BASE Tetris</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; background: linear-gradient(135deg, #0052FF 0%, #0C5DFF 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; }
+        .container { background: white; border-radius: 20px; padding: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 450px; width: 100%; }
+        h1 { text-align: center; background: linear-gradient(135deg, #0052FF 0%, #0C5DFF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; font-size: 22px; }
+        .game-area { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+        .canvas-container { position: relative; touch-action: none; }
+        canvas { border: 3px solid #0052FF; border-radius: 8px; background: #000; max-width: 100%; height: auto; display: block; }
+        .info-row { display: flex; gap: 8px; width: 100%; }
+        .info-box { background: #f7f7f7; padding: 10px; border-radius: 8px; flex: 1; text-align: center; }
+        .info-box h3 { color: #0052FF; margin-bottom: 3px; font-size: 12px; }
+        .score { font-size: 20px; font-weight: bold; color: #0C5DFF; }
+        .pool-warning { background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-align: center; display: none; width: 100%; }
+        .pool-warning.show { display: block; }
+        .touch-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 280px; margin: 10px auto; }
+        .touch-btn { background: linear-gradient(135deg, #0052FF 0%, #0C5DFF 100%); color: white; border: none; padding: 15px; border-radius: 10px; font-size: 20px; cursor: pointer; transition: all 0.2s; font-weight: bold; user-select: none; touch-action: manipulation; }
+        .touch-btn:active { transform: scale(0.95); opacity: 0.8; }
+        .touch-btn.rotate { grid-column: 2; }
+        .touch-btn.left { grid-column: 1; grid-row: 2; }
+        .touch-btn.down { grid-column: 2; grid-row: 2; }
+        .touch-btn.right { grid-column: 3; grid-row: 2; }
+        .touch-btn.drop { grid-column: 1 / 4; grid-row: 3; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #000; }
+        .wallet-section { background: #fff3cd; padding: 12px; border-radius: 10px; border: 2px solid #ffc107; width: 100%; }
+        .wallet-connected { background: #d4edda; border: 2px solid #28a745; }
+        button.action-btn { background: linear-gradient(135deg, #0052FF 0%, #0C5DFF 100%); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 0.3s; font-weight: bold; width: 100%; margin-top: 8px; }
+        button.action-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,82,255,0.4); }
+        button.action-btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+        .game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); color: white; padding: 25px 20px; border-radius: 15px; text-align: center; display: none; z-index: 10; min-width: 220px; width: 90%; }
+        .game-over.show { display: block; }
+        .game-over h2 { margin-bottom: 10px; color: #0052FF; }
+        .game-over p { font-size: 14px; margin-bottom: 5px; }
+        .submit-hint { font-size: 11px; color: #FFD700; margin-top: 8px; display: none; }
+        .submit-hint.show { display: block; }
+        #gateOverlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.87); border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white; text-align: center; padding: 20px; gap: 10px; }
+        #gateOverlay h3 { font-size: 16px; color: #FFD700; }
+        #gateOverlay p { font-size: 12px; color: #ccc; }
+        .status-message { margin-top: 10px; padding: 10px; border-radius: 5px; font-size: 12px; }
+        .status-success { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .wallet-address { font-size: 11px; color: #666; word-break: break-all; margin-top: 5px; }
+        .swipe-hint { text-align: center; font-size: 11px; color: #666; margin: 5px 0; }
+        .token-info { margin-top: 8px; padding: 8px; background: #e8f4f8; border-radius: 5px; font-size: 11px; }
+        #payBtn { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #000; border: none; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; }
+        #payBtn:disabled { background: #ccc; cursor: not-allowed; }
+        .pool-info { font-size: 11px; color: #888; text-align: center; margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>⚡ BASE Tetris</h1>
+    <div class="game-area">
+        <div class="info-row">
+            <div class="info-box"><h3>Score</h3><div class="score" id="score">0</div></div>
+            <div class="info-box"><h3>Level</h3><div class="score" id="level">1</div></div>
+        </div>
+        <div class="info-row">
+            <div class="info-box"><h3>🪙 Your Tokens</h3><div class="score" id="tokenBalance" style="font-size:20px;">—</div></div>
+            <div class="info-box"><h3>💰 Earned</h3><div class="score" id="tokensEarned" style="font-size:20px;">0</div></div>
+        </div>
+        <div class="pool-warning" id="poolWarning">⚠️ Reward pool is running low — rewards may not be available</div>
+        <div class="canvas-container">
+            <canvas id="tetris" width="240" height="400"></canvas>
+            <div id="gateOverlay">
+                <h3>⚡ BASE Tetris</h3>
+                <p>Connect your wallet and pay<br><strong>10 bTetris tokens</strong> to start a game.</p>
+                <p id="gateStatus" style="color:#FFD700; font-size:12px; margin-top:5px;"></p>
+            </div>
+            <div id="gameOver" class="game-over">
+                <h2>Game Over!</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button class="action-btn" id="submitBtn" style="display:none; background:#FFD700; color:#000; margin-top:12px;" onclick="submitScoreToBlockchain()">🏆 Submit Score & Earn Tokens</button>
+                <p class="submit-hint" id="submitHint">⬆️ Submit your score first to earn tokens!</p>
+                <button class="action-btn" id="playAgainBtn" onclick="startNewPaidGame()" style="margin-top:8px;">🔄 Play Again (10 tokens)</button>
+            </div>
+        </div>
+        <div class="swipe-hint">💡 Swipe on game board or use buttons below</div>
+        <div class="touch-controls">
+            <button class="touch-btn rotate" id="rotateBtn">🔄</button>
+            <button class="touch-btn left" id="leftBtn">⬅️</button>
+            <button class="touch-btn down" id="downBtn">⬇️</button>
+            <button class="touch-btn right" id="rightBtn">➡️</button>
+            <button class="touch-btn drop" id="dropBtn">⚡ DROP</button>
+        </div>
+        <button class="action-btn" id="pauseBtn" onclick="togglePause()" disabled>⏸️ Pause / ▶️ Resume</button>
+        <div id="walletSection" class="wallet-section">
+            <h3 style="margin-bottom:10px;">⚡ BASE Network</h3>
+            <button class="action-btn" id="connectBtn" onclick="connectWallet()">Connect MetaMask</button>
+            <div id="walletAddress" class="wallet-address"></div>
+            <div id="paySection" style="display:none;">
+                <button id="payBtn" onclick="startNewPaidGame()">🎮 Pay 10 bTetris & Play</button>
+                <div class="pool-info" id="poolInfo"></div>
+            </div>
+            <div id="statusMessage"></div>
+            <div class="token-info">
+                <strong>⚡ BASE Tetris Token (bTetris)</strong><br>
+                • 1% tax on all transfers<br>
+                • 0.25% burned forever<br>
+                • 0.75% to development wallet<br><br>
+                <strong>🎮 Rewards:</strong><br>
+                • 5 tokens per 100 points<br>
+                • +50 bonus at 1,000 points<br>
+                • +250 bonus at 5,000 points<br>
+                • +500 bonus at 10,000 points<br>
+                • Entry fee: 10 bTetris per game
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const canvas = document.getElementById('tetris');
+    const ctx = canvas.getContext('2d');
+    const BLOCK_SIZE = 20;
+    const ROWS = 20, COLS = 12;
+    let board = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+    let score = 0, level = 1, gameRunning = false, isPaused = false;
+    let gameLoop, currentPiece, dropCounter = 0, dropInterval = 1000, lastTime = 0;
+    let touchStartX = 0, touchStartY = 0, scoreSubmitted = false;
+    const SHAPES = { I:[[1,1,1,1]], O:[[1,1],[1,1]], T:[[0,1,0],[1,1,1]], S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]], J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]] };
+    const COLORS = { I:'#00f0f0', O:'#f0f000', T:'#a000f0', S:'#00f000', Z:'#f00000', J:'#0000f0', L:'#f0a000' };
+    class Piece {
+        constructor() { const k=Object.keys(SHAPES); this.type=k[Math.floor(Math.random()*k.length)]; this.shape=SHAPES[this.type]; this.color=COLORS[this.type]; this.x=Math.floor(COLS/2)-Math.floor(this.shape[0].length/2); this.y=0; }
+        draw() { ctx.fillStyle=this.color; for(let r=0;r<this.shape.length;r++) for(let c=0;c<this.shape[r].length;c++) if(this.shape[r][c]) ctx.fillRect((this.x+c)*BLOCK_SIZE,(this.y+r)*BLOCK_SIZE,BLOCK_SIZE-1,BLOCK_SIZE-1); }
+        move(dx,dy) { this.x+=dx; this.y+=dy; if(this.collides()){this.x-=dx; this.y-=dy; return false;} return true; }
+        rotate() { const n=this.shape[0].map((_,i)=>this.shape.map(r=>r[i]).reverse()),p=this.shape; this.shape=n; if(this.collides()) this.shape=p; }
+        collides() { for(let r=0;r<this.shape.length;r++) for(let c=0;c<this.shape[r].length;c++) if(this.shape[r][c]){const nx=this.x+c,ny=this.y+r; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0&&board[ny][nx]) return true;} return false; }
+        lock() { for(let r=0;r<this.shape.length;r++) for(let c=0;c<this.shape[r].length;c++) if(this.shape[r][c]){const y=this.y+r,x=this.x+c; if(y>=0) board[y][x]=this.color;} }
+    }
+    function drawBoard() { ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height); for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c]){ctx.fillStyle=board[r][c]; ctx.fillRect(c*BLOCK_SIZE,r*BLOCK_SIZE,BLOCK_SIZE-1,BLOCK_SIZE-1);} }
+    function clearLines() { let n=0; for(let r=ROWS-1;r>=0;r--){if(board[r].every(c=>c!==0)){board.splice(r,1);board.unshift(Array(COLS).fill(0));n++;r++;}} if(n>0){score+=n*100*level;level=Math.floor(score/1000)+1;dropInterval=Math.max(100,1000-(level-1)*100);document.getElementById('score').textContent=score;document.getElementById('level').textContent=level;} }
+    function fullReset() {
+        board=Array(ROWS).fill().map(()=>Array(COLS).fill(0)); score=0; level=1; dropInterval=1000; dropCounter=0; lastTime=0; gameRunning=false; isPaused=false; scoreSubmitted=false;
+        if(gameLoop) cancelAnimationFrame(gameLoop);
+        document.getElementById('score').textContent='0'; document.getElementById('level').textContent='1'; document.getElementById('tokensEarned').textContent='0';
+        document.getElementById('gameOver').classList.remove('show'); document.getElementById('finalScore').textContent='0';
+        const sb=document.getElementById('submitBtn'); sb.style.display='none'; sb.disabled=false; sb.textContent='🏆 Submit Score & Earn Tokens';
+        document.getElementById('submitHint').classList.remove('show');
+        document.getElementById('playAgainBtn').disabled=false;
+        document.getElementById('pauseBtn').disabled=true;
+        currentPiece=new Piece(); drawBoard(); currentPiece.draw();
+    }
+    function gameOver() {
+        gameRunning=false; if(gameLoop) cancelAnimationFrame(gameLoop);
+        document.getElementById('pauseBtn').disabled=true;
+        document.getElementById('finalScore').textContent=score;
+        document.getElementById('gameOver').classList.add('show');
+        if(window.userAddress&&!scoreSubmitted){const sb=document.getElementById('submitBtn'); sb.style.display='block'; sb.disabled=false; sb.textContent='🏆 Submit Score & Earn Tokens'; document.getElementById('submitHint').classList.add('show'); document.getElementById('playAgainBtn').disabled=true;}
+        else{document.getElementById('submitBtn').style.display='none'; document.getElementById('submitHint').classList.remove('show'); document.getElementById('playAgainBtn').disabled=false;}
+    }
+    function launchGame() { gameRunning=true; isPaused=false; document.getElementById('pauseBtn').disabled=false; lastTime=0; animate(); }
+    function togglePause() { if(!gameRunning) return; isPaused=!isPaused; if(!isPaused){lastTime=performance.now();animate();} }
+    function animate(time=0) {
+        if(!gameRunning||isPaused) return;
+        const delta=time-lastTime; lastTime=time; dropCounter+=delta;
+        if(dropCounter>dropInterval){if(!currentPiece.move(0,1)){currentPiece.lock();clearLines();currentPiece=new Piece();if(currentPiece.collides()){gameOver();return;}} dropCounter=0;}
+        drawBoard(); currentPiece.draw(); gameLoop=requestAnimationFrame(animate);
+    }
+    document.addEventListener('keydown',e=>{if(!gameRunning||isPaused)return;switch(e.key){case 'ArrowLeft':currentPiece.move(-1,0);break;case 'ArrowRight':currentPiece.move(1,0);break;case 'ArrowDown':currentPiece.move(0,1);break;case 'ArrowUp':currentPiece.rotate();break;case ' ':while(currentPiece.move(0,1)){}break;}});
+    ['leftBtn','rightBtn','downBtn','rotateBtn','dropBtn'].forEach(id=>{const fn=e=>{e.preventDefault();if(!gameRunning||isPaused)return;if(id==='leftBtn')currentPiece.move(-1,0);else if(id==='rightBtn')currentPiece.move(1,0);else if(id==='downBtn')currentPiece.move(0,1);else if(id==='rotateBtn')currentPiece.rotate();else if(id==='dropBtn')while(currentPiece.move(0,1)){}};document.getElementById(id).addEventListener('click',fn);document.getElementById(id).addEventListener('touchstart',fn);});
+    canvas.addEventListener('touchstart',e=>{e.preventDefault();touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;},{passive:false});
+    canvas.addEventListener('touchend',e=>{e.preventDefault();if(!gameRunning||isPaused)return;const dx=e.changedTouches[0].clientX-touchStartX,dy=e.changedTouches[0].clientY-touchStartY;if(Math.abs(dx)>Math.abs(dy)){if(Math.abs(dx)>30)dx>0?currentPiece.move(1,0):currentPiece.move(-1,0);}else{if(Math.abs(dy)>30)dy>0?(()=>{while(currentPiece.move(0,1)){}})():currentPiece.rotate();}},{passive:false});
+    window.userAddress=null; window.provider=null; window.signer=null;
+    const TOKEN_ADDRESS='0xfDD63c60d4f151223F76F261F723Ac42bA59330A';
+    const GAME_ADDRESS='0xcb283AB7A250DEB0a4927e5ddbEFeC3B0FB203B0';
+    const BASE_CHAIN_ID=8453, BASE_TESTNET_CHAIN_ID=84532, LOW_POOL_THRESHOLD=1000;
+    const GAME_ABI=["function startGame() external","function submitScore(uint256 score) external","function hasActiveGame(address playerAddress) external view returns (bool)","function getRewardPoolBalance() external view returns (uint256)"];
+    const TOKEN_ABI=["function balanceOf(address account) external view returns (uint256)","function approve(address spender, uint256 amount) external returns (bool)","function allowance(address owner, address spender) external view returns (uint256)"];
+    async function connectWallet(){if(typeof window.ethereum==='undefined'){showStatus('Please install MetaMask!','error');return;}if(typeof ethers==='undefined'){showStatus('Loading...','success');setTimeout(connectWallet,1000);return;}try{const accounts=await window.ethereum.request({method:'eth_requestAccounts'});window.userAddress=accounts[0];window.provider=new ethers.providers.Web3Provider(window.ethereum);window.signer=window.provider.getSigner();const network=await window.provider.getNetwork();if(network.chainId!==BASE_TESTNET_CHAIN_ID&&network.chainId!==BASE_CHAIN_ID){try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x2105'}]});}catch(se){if(se.code===4902){await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:'0x2105',chainName:'Base Mainnet',nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},rpcUrls:['https://mainnet.base.org'],blockExplorerUrls:['https://basescan.org']}]});}}};document.getElementById('walletAddress').textContent=`Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;document.getElementById('walletSection').classList.add('wallet-connected');document.getElementById('connectBtn').textContent='Wallet Connected ✓';document.getElementById('connectBtn').disabled=true;document.getElementById('paySection').style.display='block';await updateTokenBalance();await updatePoolInfo();setGateStatus('✅ Wallet connected! Pay 10 bTetris to start.');showStatus('MetaMask connected to BASE!','success');window.ethereum.on('accountsChanged',accs=>{if(!accs.length)window.location.reload();else{window.userAddress=accs[0];updateTokenBalance();}});}catch(err){showStatus('Error: '+err.message,'error');}}
+    async function updateTokenBalance(){if(!window.userAddress||!window.provider)return;try{const tc=new ethers.Contract(TOKEN_ADDRESS,TOKEN_ABI,window.provider);const bal=await tc.balanceOf(window.userAddress);document.getElementById('tokenBalance').textContent=Math.floor(parseFloat(ethers.utils.formatEther(bal))).toLocaleString();}catch(e){document.getElementById('tokenBalance').textContent='0';}}
+    async function updatePoolInfo(){try{const gc=new ethers.Contract(GAME_ADDRESS,GAME_ABI,window.provider);const pool=await gc.getRewardPoolBalance();const n=Math.floor(parseFloat(ethers.utils.formatEther(pool)));document.getElementById('poolInfo').textContent=`Reward pool: ${n.toLocaleString()} bTetris`;document.getElementById('poolWarning').classList.toggle('show',n<LOW_POOL_THRESHOLD);}catch(e){}}
+    function calcReward(s){return Math.floor(s/100)*5+(s>=10000?500:s>=5000?250:s>=1000?50:0);}
+    async function startNewPaidGame(){if(!window.userAddress){showStatus('Please connect your wallet first!','error');return;}const payBtn=document.getElementById('payBtn'),playAgainBtn=document.getElementById('playAgainBtn');payBtn.disabled=true;payBtn.textContent='⏳ Processing...';playAgainBtn.disabled=true;try{const tc=new ethers.Contract(TOKEN_ADDRESS,TOKEN_ABI,window.signer),gc=new ethers.Contract(GAME_ADDRESS,GAME_ABI,window.signer),gameCost=ethers.utils.parseEther("10");const bal=await tc.balanceOf(window.userAddress);if(bal.lt(gameCost)){showStatus('Not enough bTetris! You need at least 10 to play.','error');setGateStatus('❌ Insufficient tokens.');payBtn.disabled=false;payBtn.textContent='🎮 Pay 10 bTetris & Play';playAgainBtn.disabled=false;return;}const allowance=await tc.allowance(window.userAddress,GAME_ADDRESS);if(allowance.lt(gameCost)){showStatus('Approving tokens... (confirm in MetaMask)','success');setGateStatus('⏳ Approve in MetaMask...');await(await tc.approve(GAME_ADDRESS,ethers.utils.parseEther("10000"))).wait();}showStatus('Starting game... (confirm in MetaMask)','success');setGateStatus('⏳ Paying entry fee...');await(await gc.startGame()).wait();fullReset();document.getElementById('gateOverlay').style.display='none';await updateTokenBalance();await updatePoolInfo();showStatus('✅ Game started! Good luck!','success');setGateStatus('');payBtn.textContent='🎮 Pay 10 bTetris & Play';payBtn.disabled=false;playAgainBtn.disabled=false;launchGame();}catch(err){console.error(err);showStatus('Failed: '+err.message,'error');setGateStatus('❌ Something went wrong. Try again.');payBtn.disabled=false;payBtn.textContent='🎮 Pay 10 bTetris & Play';playAgainBtn.disabled=false;}}
+    async function submitScoreToBlockchain(){if(!window.userAddress){showStatus('Connect wallet first','error');return;}if(score===0){showStatus('Play a game first!','error');return;}if(scoreSubmitted){showStatus('Already submitted!','error');return;}const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='⏳ Submitting...';try{showStatus('Submitting score to BASE blockchain...','success');const gc=new ethers.Contract(GAME_ADDRESS,GAME_ABI,window.signer);await(await gc.submitScore(score)).wait();scoreSubmitted=true;btn.style.display='none';document.getElementById('submitHint').classList.remove('show');document.getElementById('playAgainBtn').disabled=false;document.getElementById('tokensEarned').textContent=calcReward(score).toLocaleString();await updateTokenBalance();await updatePoolInfo();showStatus(`🎉 Submitted! Earned ${calcReward(score)} bTetris!`,'success');}catch(err){console.error(err);showStatus('Error: '+err.message,'error');btn.disabled=false;btn.textContent='🏆 Submit Score & Earn Tokens';}}
+    function setGateStatus(msg){document.getElementById('gateStatus').textContent=msg;}
+    function showStatus(msg,type){const d=document.getElementById('statusMessage');d.textContent=msg;d.className='status-message status-'+type;setTimeout(()=>{if(d.textContent===msg){d.textContent='';d.className='';}},6000);}
+    drawBoard();
+</script>
+</body>
+</html>

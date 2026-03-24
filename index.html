@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bTetris — Play. Earn. Burn.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --blue: #0052FF;
+            --blue-bright: #4D8BFF;
+            --blue-dark: #001F8A;
+            --gold: #FFD700;
+            --gold-dim: #B89600;
+            --black: #04080F;
+            --off-white: #EEF2FF;
+            --grid-color: rgba(0,82,255,0.08);
+            --glow: 0 0 30px rgba(0,82,255,0.5);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--black);
+            color: var(--off-white);
+            overflow-x: hidden;
+        }
+
+        /* GRID BACKGROUND */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* TETRIS FALLING BLOCKS ANIMATION */
+        .falling-blocks {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .block {
+            position: absolute;
+            width: 30px; height: 30px;
+            opacity: 0.06;
+            animation: fall linear infinite;
+        }
+
+        .block:nth-child(1)  { left: 5%;   background: #00f0f0; animation-duration: 12s; animation-delay: 0s;   width:30px; height:120px; }
+        .block:nth-child(2)  { left: 15%;  background: #f0f000; animation-duration: 9s;  animation-delay: 2s;   width:60px; height:60px; }
+        .block:nth-child(3)  { left: 25%;  background: #a000f0; animation-duration: 14s; animation-delay: 4s;   width:90px; height:30px; }
+        .block:nth-child(4)  { left: 40%;  background: #00f000; animation-duration: 11s; animation-delay: 1s;   width:60px; height:60px; }
+        .block:nth-child(5)  { left: 55%;  background: #f00000; animation-duration: 13s; animation-delay: 6s;   width:60px; height:60px; }
+        .block:nth-child(6)  { left: 68%;  background: #0000f0; animation-duration: 10s; animation-delay: 3s;   width:30px; height:90px; }
+        .block:nth-child(7)  { left: 80%;  background: #f0a000; animation-duration: 15s; animation-delay: 5s;   width:60px; height:30px; }
+        .block:nth-child(8)  { left: 90%;  background: #00f0f0; animation-duration: 8s;  animation-delay: 7s;   width:30px; height:120px; }
+
+        @keyframes fall {
+            0%   { transform: translateY(-200px) rotate(0deg); opacity: 0; }
+            10%  { opacity: 0.06; }
+            90%  { opacity: 0.06; }
+            100% { transform: translateY(110vh) rotate(15deg); opacity: 0; }
+        }
+
+        /* NAV */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(4,8,15,0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,82,255,0.2);
+        }
+
+        .nav-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 28px;
+            letter-spacing: 3px;
+            color: var(--blue-bright);
+            text-shadow: 0 0 20px rgba(0,82,255,0.6);
+        }
+
+        .nav-logo span { color: var(--gold); }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: rgba(238,242,255,0.6);
+            text-decoration: none;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--gold); }
+
+        .nav-cta {
+            background: var(--blue);
+            color: white !important;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace !important;
+            font-size: 11px !important;
+            letter-spacing: 2px;
+            transition: all 0.3s !important;
+            border: 1px solid transparent;
+        }
+
+        .nav-cta:hover {
+            background: transparent !important;
+            border-color: var(--blue) !important;
+            color: var(--blue-bright) !important;
+            box-shadow: var(--glow);
+        }
+
+        /* SECTIONS */
+        section { position: relative; z-index: 1; }
+
+        /* HERO */
+        #hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 20px 60px;
+        }
+
+        .hero-eyebrow {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 4px;
+            color: var(--blue-bright);
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.2s forwards;
+        }
+
+        .hero-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(80px, 14vw, 180px);
+            line-height: 0.9;
+            letter-spacing: -2px;
+            margin-bottom: 24px;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.4s forwards;
+        }
+
+        .hero-title .line1 { display: block; color: var(--off-white); }
+        .hero-title .line2 {
+            display: block;
+            color: transparent;
+            -webkit-text-stroke: 2px var(--blue);
+            text-shadow: 0 0 60px rgba(0,82,255,0.4);
+        }
+
+        .hero-tagline {
+            font-size: 18px;
+            color: rgba(238,242,255,0.6);
+            font-weight: 300;
+            max-width: 500px;
+            margin-bottom: 48px;
+            line-height: 1.6;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.6s forwards;
+        }
+
+        .hero-tagline strong { color: var(--gold); font-weight: 500; }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 0.8s forwards;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: white;
+            padding: 16px 36px;
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            border: 2px solid var(--blue);
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            background: transparent;
+            color: var(--blue-bright);
+            box-shadow: var(--glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--gold);
+            padding: 16px 36px;
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            border: 2px solid var(--gold);
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            background: var(--gold);
+            color: var(--black);
+        }
+
+        /* CONTRACT PILL */
+        .contract-pill {
+            margin-top: 48px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,82,255,0.1);
+            border: 1px solid rgba(0,82,255,0.3);
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: rgba(238,242,255,0.7);
+            opacity: 0;
+            animation: fadeUp 0.8s ease 1s forwards;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .contract-pill:hover {
+            background: rgba(0,82,255,0.2);
+            border-color: var(--blue);
+            color: var(--off-white);
+        }
+
+        .contract-pill .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #00f000;
+            box-shadow: 0 0 8px #00f000;
+            animation: pulse 2s ease infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* STATS BAR */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            border-top: 1px solid rgba(0,82,255,0.2);
+            border-bottom: 1px solid rgba(0,82,255,0.2);
+            margin: 60px 0;
+            opacity: 0;
+            animation: fadeUp 0.8s ease 1.2s forwards;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 160px;
+            padding: 32px 24px;
+            text-align: center;
+            border-right: 1px solid rgba(0,82,255,0.15);
+        }
+
+        .stat-item:last-child { border-right: none; }
+
+        .stat-num {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 48px;
+            color: var(--blue-bright);
+            letter-spacing: 2px;
+            display: block;
+            line-height: 1;
+        }
+
+        .stat-num.gold { color: var(--gold); }
+
+        .stat-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: rgba(238,242,255,0.4);
+            text-transform: uppercase;
+            margin-top: 6px;
+            display: block;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* SECTION HEADERS */
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 4px;
+            color: var(--blue-bright);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(48px, 7vw, 80px);
+            letter-spacing: 2px;
+            line-height: 1;
+        }
+
+        /* HOW IT WORKS */
+        #how-it-works {
+            padding: 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 2px;
+        }
+
+        .step {
+            background: rgba(0,82,255,0.04);
+            border: 1px solid rgba(0,82,255,0.15);
+            padding: 40px 32px;
+            position: relative;
+            transition: all 0.4s;
+            overflow: hidden;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,82,255,0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .step:hover { border-color: var(--blue); }
+        .step:hover::before { opacity: 1; }
+
+        .step-num {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 100px;
+            color: rgba(0,82,255,0.12);
+            position: absolute;
+            top: -10px; right: 10px;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .step-icon {
+            font-size: 36px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .step h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 28px;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            color: var(--off-white);
+        }
+
+        .step p {
+            font-size: 14px;
+            color: rgba(238,242,255,0.55);
+            line-height: 1.7;
+        }
+
+        /* TOKENOMICS */
+        #tokenomics {
+            padding: 100px 40px;
+            background: rgba(0,82,255,0.03);
+            border-top: 1px solid rgba(0,82,255,0.1);
+            border-bottom: 1px solid rgba(0,82,255,0.1);
+        }
+
+        .tokenomics-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .toko-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .toko-card {
+            background: rgba(0,82,255,0.06);
+            border: 1px solid rgba(0,82,255,0.2);
+            border-radius: 4px;
+            padding: 36px;
+        }
+
+        .toko-card h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 28px;
+            letter-spacing: 3px;
+            margin-bottom: 28px;
+            color: var(--blue-bright);
+        }
+
+        .toko-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(0,82,255,0.1);
+        }
+
+        .toko-row:last-child { border-bottom: none; }
+
+        .toko-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: rgba(238,242,255,0.5);
+        }
+
+        .toko-value {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            color: var(--off-white);
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .toko-value.blue { color: var(--blue-bright); }
+        .toko-value.gold { color: var(--gold); }
+        .toko-value.red { color: #ff4444; }
+        .toko-value.green { color: #00f000; }
+
+        /* DISTRIBUTION VIZ */
+        .distro-bar {
+            margin: 24px 0;
+            height: 16px;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            background: rgba(0,82,255,0.1);
+        }
+
+        .distro-seg {
+            height: 100%;
+            transition: flex 1s ease;
+        }
+
+        .distro-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .legend-dot {
+            width: 12px; height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .legend-text {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: rgba(238,242,255,0.6);
+            flex: 1;
+        }
+
+        .legend-pct {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 20px;
+            letter-spacing: 1px;
+        }
+
+        /* REWARDS */
+        #rewards {
+            padding: 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .rewards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2px;
+        }
+
+        .reward-card {
+            background: rgba(255,215,0,0.04);
+            border: 1px solid rgba(255,215,0,0.15);
+            padding: 36px 28px;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reward-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--gold);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .reward-card:hover { border-color: var(--gold); background: rgba(255,215,0,0.07); }
+        .reward-card:hover::after { transform: scaleX(1); }
+
+        .reward-score {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 40px;
+            color: var(--gold);
+            letter-spacing: 2px;
+            display: block;
+            line-height: 1;
+        }
+
+        .reward-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(238,242,255,0.4);
+            text-transform: uppercase;
+            display: block;
+            margin: 8px 0 16px;
+        }
+
+        .reward-tokens {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 36px;
+            color: var(--off-white);
+            letter-spacing: 1px;
+        }
+
+        .reward-tokens span {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            color: rgba(238,242,255,0.4);
+        }
+
+        /* DEFLATION */
+        #deflation {
+            padding: 100px 40px;
+            background: rgba(255,0,0,0.02);
+            border-top: 1px solid rgba(255,68,68,0.1);
+            border-bottom: 1px solid rgba(255,68,68,0.1);
+        }
+
+        .deflation-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .burn-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 2px;
+        }
+
+        .burn-card {
+            padding: 40px 32px;
+            border: 1px solid rgba(255,68,68,0.15);
+            background: rgba(255,68,68,0.03);
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .burn-card:hover {
+            border-color: rgba(255,68,68,0.4);
+            background: rgba(255,68,68,0.06);
+        }
+
+        .burn-icon {
+            font-size: 32px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .burn-card h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 22px;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            color: #ff6666;
+        }
+
+        .burn-card p {
+            font-size: 13px;
+            color: rgba(238,242,255,0.5);
+            line-height: 1.7;
+        }
+
+        /* SECURITY */
+        #security {
+            padding: 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .security-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .security-item {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 24px;
+            background: rgba(0,240,0,0.03);
+            border: 1px solid rgba(0,240,0,0.12);
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .security-item:hover { border-color: rgba(0,240,0,0.3); }
+
+        .security-item .check {
+            width: 24px; height: 24px;
+            background: rgba(0,240,0,0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 12px;
+            color: #00f000;
+        }
+
+        .security-item p {
+            font-size: 14px;
+            color: rgba(238,242,255,0.65);
+            line-height: 1.6;
+            padding-top: 2px;
+        }
+
+        .security-item strong {
+            display: block;
+            color: var(--off-white);
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        /* CTA */
+        #cta {
+            padding: 120px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #cta::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(0,82,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .cta-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(60px, 10vw, 120px);
+            letter-spacing: 2px;
+            line-height: 0.9;
+            margin-bottom: 32px;
+        }
+
+        .cta-title .highlight {
+            color: var(--gold);
+            display: block;
+        }
+
+        /* FOOTER */
+        footer {
+            border-top: 1px solid rgba(0,82,255,0.15);
+            padding: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: gap;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 22px;
+            letter-spacing: 3px;
+            color: var(--blue-bright);
+        }
+
+        .footer-logo span { color: var(--gold); }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(238,242,255,0.4);
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover { color: var(--blue-bright); }
+
+        .footer-copy {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            color: rgba(238,242,255,0.25);
+            letter-spacing: 1px;
+        }
+
+        /* TICKER TAPE */
+        .ticker {
+            overflow: hidden;
+            border-top: 1px solid rgba(0,82,255,0.15);
+            border-bottom: 1px solid rgba(0,82,255,0.15);
+            padding: 12px 0;
+            background: rgba(0,82,255,0.04);
+            white-space: nowrap;
+            position: relative;
+            z-index: 1;
+        }
+
+        .ticker-inner {
+            display: inline-block;
+            animation: ticker 30s linear infinite;
+        }
+
+        .ticker-inner span {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: rgba(0,82,255,0.7);
+            margin: 0 40px;
+        }
+
+        .ticker-inner span.gold { color: rgba(255,215,0,0.7); }
+
+        @keyframes ticker {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* SCROLL REVEAL */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.7s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* COPY TOAST */
+        .toast {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--blue);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: transform 0.3s ease;
+            z-index: 999;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* SOCIAL SECTION */
+        #community {
+            padding: 100px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2px;
+        }
+
+        .social-card {
+            padding: 48px 36px;
+            border: 1px solid rgba(0,82,255,0.15);
+            background: rgba(0,82,255,0.04);
+            text-align: center;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .social-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .social-card.twitter::before  { background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(29,161,242,0.08)); }
+        .social-card.telegram::before { background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,136,204,0.08)); }
+        .social-card.discord::before  { background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(88,101,242,0.08)); }
+
+        .social-card:hover { transform: translateY(-4px); }
+        .social-card:hover::before { opacity: 1; }
+        .social-card.twitter:hover  { border-color: #1DA1F2; box-shadow: 0 0 30px rgba(29,161,242,0.2); }
+        .social-card.telegram:hover { border-color: #0088CC; box-shadow: 0 0 30px rgba(0,136,204,0.2); }
+        .social-card.discord:hover  { border-color: #5865F2; box-shadow: 0 0 30px rgba(88,101,242,0.2); }
+
+        .social-icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        .social-card h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 32px;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+
+        .social-card.twitter h3  { color: #1DA1F2; }
+        .social-card.telegram h3 { color: #0088CC; }
+        .social-card.discord h3  { color: #5865F2; }
+
+        .social-card p {
+            font-size: 13px;
+            color: rgba(238,242,255,0.5);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .social-badge {
+            display: inline-block;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            padding: 8px 20px;
+            border-radius: 50px;
+            text-transform: uppercase;
+        }
+
+        .social-card.twitter  .social-badge { background: rgba(29,161,242,0.15);  color: #1DA1F2;  border: 1px solid rgba(29,161,242,0.3); }
+        .social-card.telegram .social-badge { background: rgba(0,136,204,0.15);   color: #0088CC;  border: 1px solid rgba(0,136,204,0.3); }
+        .social-card.discord  .social-badge { background: rgba(88,101,242,0.15);  color: #5865F2;  border: 1px solid rgba(88,101,242,0.3); }
+
+        .placeholder-note {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 1px;
+            color: rgba(238,242,255,0.2);
+            margin-top: 10px;
+            display: block;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            nav { padding: 16px 20px; }
+            .nav-links { display: none; }
+            #how-it-works, #rewards, #security, #community, #deflation .deflation-inner, .tokenomics-inner { padding-left: 20px; padding-right: 20px; }
+            .toko-grid { grid-template-columns: 1fr; }
+            footer { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Falling tetris blocks background -->
+    <div class="falling-blocks">
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+        <div class="block"></div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast">✓ Copied to clipboard</div>
+
+    <!-- NAV -->
+    <nav>
+        <div class="nav-logo">b<span>Tetris</span></div>
+        <ul class="nav-links">
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#tokenomics">Tokenomics</a></li>
+            <li><a href="#rewards">Rewards</a></li>
+            <li><a href="#security">Security</a></li>
+            <li><a href="#community">Community</a></li>
+            <li><a href="#cta" class="nav-cta">Play Now</a></li>
+        </ul>
+    </nav>
+
+    <!-- TICKER TAPE -->
+    <div class="ticker" style="margin-top: 70px;">
+        <div class="ticker-inner">
+            <span>⚡ BASE TETRIS</span>
+            <span class="gold">$bTetris</span>
+            <span>PLAY · EARN · BURN</span>
+            <span class="gold">20,000,000 SUPPLY</span>
+            <span>1% TRANSFER TAX</span>
+            <span class="gold">DEFLATIONARY</span>
+            <span>BASE NETWORK</span>
+            <span class="gold">ULTRA-LOW FEES</span>
+            <span>⚡ BASE TETRIS</span>
+            <span class="gold">$bTetris</span>
+            <span>PLAY · EARN · BURN</span>
+            <span class="gold">20,000,000 SUPPLY</span>
+            <span>1% TRANSFER TAX</span>
+            <span class="gold">DEFLATIONARY</span>
+            <span>BASE NETWORK</span>
+            <span class="gold">ULTRA-LOW FEES</span>
+        </div>
+    </div>
+
+    <!-- HERO -->
+    <section id="hero">
+        <p class="hero-eyebrow">⚡ Live on BASE Network · ERC-20</p>
+        <h1 class="hero-title">
+            <span class="line1">Play</span>
+            <span class="line2">Earn. Burn.</span>
+        </h1>
+        <p class="hero-tagline">
+            The first <strong>deflationary play-to-earn</strong> Tetris game on BASE. Every block dropped burns supply. Every line cleared earns tokens.
+        </p>
+        <div class="hero-buttons">
+            <a href="#" class="btn-primary">⚡ Play Now</a>
+            <a href="#tokenomics" class="btn-secondary">View Tokenomics</a>
+        </div>
+        <div class="contract-pill" onclick="copyContract()">
+            <div class="dot"></div>
+            <span>CONTRACT: 0xCde2B7B1b5d0CD62FC75E137b1e5521465a9E67D</span>
+            <span style="opacity:0.4; font-size:9px;">CLICK TO COPY</span>
+        </div>
+    </section>
+
+    <!-- STATS BAR -->
+    <div class="stats-bar reveal">
+        <div class="stat-item">
+            <span class="stat-num">20M</span>
+            <span class="stat-label">Total Supply</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-num gold">1%</span>
+            <span class="stat-label">Transfer Tax</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-num">10</span>
+            <span class="stat-label">bTetris Per Game</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-num gold">∞</span>
+            <span class="stat-label">Deflationary</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-num">BASE</span>
+            <span class="stat-label">Network</span>
+        </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works">
+        <div class="section-header reveal">
+            <span class="section-label">The Loop</span>
+            <h2 class="section-title">How It Works</h2>
+        </div>
+        <div class="steps">
+            <div class="step reveal">
+                <span class="step-num">01</span>
+                <span class="step-icon">🦊</span>
+                <h3>Connect Wallet</h3>
+                <p>Link your MetaMask to BASE network. Ultra-low gas fees, lightning-fast transactions — you'll barely notice the chain.</p>
+            </div>
+            <div class="step reveal">
+                <span class="step-num">02</span>
+                <span class="step-icon">🔥</span>
+                <h3>Pay to Play</h3>
+                <p>Each game costs 10 bTetris — burned immediately on entry. Every game session permanently reduces the total supply.</p>
+            </div>
+            <div class="step reveal">
+                <span class="step-num">03</span>
+                <span class="step-icon">🎮</span>
+                <h3>Stack Blocks</h3>
+                <p>Play classic Tetris. Clear lines, rack up points. The higher your score, the more bTetris you stand to earn from the reward pool.</p>
+            </div>
+            <div class="step reveal">
+                <span class="step-num">04</span>
+                <span class="step-icon">🏆</span>
+                <h3>Claim Rewards</h3>
+                <p>Submit your score on-chain. Tokens are paid from the 10M-token game pool. Bonuses unlock at 1K, 5K, and 10K points.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TOKENOMICS -->
+    <section id="tokenomics">
+        <div class="tokenomics-inner">
+            <div class="section-header reveal">
+                <span class="section-label">By the Numbers</span>
+                <h2 class="section-title">Tokenomics</h2>
+            </div>
+            <div class="toko-grid">
+                <div>
+                    <div class="toko-card reveal">
+                        <h3>Token Details</h3>
+                        <div class="toko-row">
+                            <span class="toko-label">Name</span>
+                            <span class="toko-value">BASE Tetris</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Symbol</span>
+                            <span class="toko-value blue">$bTetris</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Total Supply</span>
+                            <span class="toko-value">20,000,000</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Network</span>
+                            <span class="toko-value blue">BASE (L2)</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Decimals</span>
+                            <span class="toko-value">18</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Minting</span>
+                            <span class="toko-value red">DISABLED FOREVER</span>
+                        </div>
+                    </div>
+
+                    <div class="toko-card reveal" style="margin-top: 2px;">
+                        <h3>Transfer Tax — 1%</h3>
+                        <div class="toko-row">
+                            <span class="toko-label">Dev Wallet (0xB693...E464)</span>
+                            <span class="toko-value gold">0.75%</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Burned Forever</span>
+                            <span class="toko-value red">0.25%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="toko-card reveal">
+                        <h3>Supply Distribution</h3>
+                        <div class="distro-bar">
+                            <div class="distro-seg" style="flex: 50; background: var(--blue);"></div>
+                            <div class="distro-seg" style="flex: 50; background: var(--gold);"></div>
+                        </div>
+                        <div class="distro-legend">
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background: var(--blue);"></div>
+                                <span class="legend-text">Liquidity & Development</span>
+                                <span class="legend-pct" style="color: var(--blue-bright);">50%</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background: var(--gold);"></div>
+                                <span class="legend-text">Game Reward Pool</span>
+                                <span class="legend-pct" style="color: var(--gold);">50%</span>
+                            </div>
+                        </div>
+                        <div class="toko-row" style="margin-top: 24px;">
+                            <span class="toko-label">Dev & Liquidity</span>
+                            <span class="toko-value blue">10,000,000 bTetris</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Reward Pool</span>
+                            <span class="toko-value gold">10,000,000 bTetris</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Pool Setup</span>
+                            <span class="toko-value green">Auto via setGameContract()</span>
+                        </div>
+                    </div>
+
+                    <div class="toko-card reveal" style="margin-top: 2px;">
+                        <h3>Game Economics</h3>
+                        <div class="toko-row">
+                            <span class="toko-label">Entry Fee</span>
+                            <span class="toko-value red">10 bTetris (burned)</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Base Reward</span>
+                            <span class="toko-value gold">5 per 100 pts</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Max Score Cap</span>
+                            <span class="toko-value">1,000,000</span>
+                        </div>
+                        <div class="toko-row">
+                            <span class="toko-label">Submissions</span>
+                            <span class="toko-value green">1 per session</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- REWARDS -->
+    <section id="rewards">
+        <div class="section-header reveal">
+            <span class="section-label">Score to Earn</span>
+            <h2 class="section-title">Reward Tiers</h2>
+        </div>
+        <div class="rewards-grid">
+            <div class="reward-card reveal">
+                <span class="reward-score">100+</span>
+                <span class="reward-label">Points</span>
+                <div class="reward-tokens">5 <span>bTetris</span></div>
+                <p style="font-family:'Space Mono',monospace; font-size:10px; color:rgba(238,242,255,0.3); margin-top:12px; letter-spacing:1px;">BASE RATE</p>
+            </div>
+            <div class="reward-card reveal">
+                <span class="reward-score">1,000</span>
+                <span class="reward-label">Points Bonus</span>
+                <div class="reward-tokens">+50 <span>bTetris</span></div>
+                <p style="font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,215,0,0.5); margin-top:12px; letter-spacing:1px;">BONUS UNLOCK</p>
+            </div>
+            <div class="reward-card reveal">
+                <span class="reward-score">5,000</span>
+                <span class="reward-label">Points Bonus</span>
+                <div class="reward-tokens">+250 <span>bTetris</span></div>
+                <p style="font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,215,0,0.5); margin-top:12px; letter-spacing:1px;">BONUS UNLOCK</p>
+            </div>
+            <div class="reward-card reveal">
+                <span class="reward-score">10K</span>
+                <span class="reward-label">Points Bonus</span>
+                <div class="reward-tokens">+500 <span>bTetris</span></div>
+                <p style="font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,215,0,0.7); margin-top:12px; letter-spacing:1px;">⚡ MAX BONUS</p>
+            </div>
+        </div>
+        <p style="text-align:center; font-family:'Space Mono',monospace; font-size:11px; color:rgba(238,242,255,0.3); margin-top:32px; letter-spacing:1px;">
+            Rewards paid from 10,000,000 token game pool. Pool balance verified before every payout.
+        </p>
+    </section>
+
+    <!-- DEFLATIONARY -->
+    <section id="deflation">
+        <div class="deflation-inner">
+            <div class="section-header reveal">
+                <span class="section-label">By Design</span>
+                <h2 class="section-title" style="color: #ff6666;">Supply Only Goes Down</h2>
+            </div>
+            <div class="burn-cards">
+                <div class="burn-card reveal">
+                    <span class="burn-icon">🔥</span>
+                    <h3>Transfer Burns</h3>
+                    <p>Every single token transfer incurs a 0.25% permanent burn. Every wallet-to-wallet, every DEX trade — reducing supply automatically.</p>
+                </div>
+                <div class="burn-card reveal">
+                    <span class="burn-icon">🎮</span>
+                    <h3>Entry Fee Burns</h3>
+                    <p>10 bTetris is destroyed upon each game session start. The more players, the faster the supply shrinks.</p>
+                </div>
+                <div class="burn-card reveal">
+                    <span class="burn-icon">📊</span>
+                    <h3>Score Submission Burns</h3>
+                    <p>An additional burn mechanism is triggered on every score submission, layering deflationary pressure on top of gameplay.</p>
+                </div>
+                <div class="burn-card reveal">
+                    <span class="burn-icon">🚫</span>
+                    <h3>No Minting. Ever.</h3>
+                    <p>Fixed supply at 20,000,000. Minting is permanently disabled at the contract level. Supply can only decrease — never increase.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECURITY -->
+    <section id="security">
+        <div class="section-header reveal">
+            <span class="section-label">Built Safe</span>
+            <h2 class="section-title">Security First</h2>
+        </div>
+        <div class="security-list">
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>Fixed Supply — No Minting</strong>Total supply is locked at 20M. No admin function can ever create new tokens.</p>
+            </div>
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>One Submission Per Session</strong>Smart contract enforces a single score submission per game session — no farming exploits.</p>
+            </div>
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>Reward Pool Balance Check</strong>Contract verifies the pool has sufficient tokens before processing any reward payout.</p>
+            </div>
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>Max Score Cap</strong>Score inputs are capped at 1,000,000 to prevent integer overflow and reward manipulation attacks.</p>
+            </div>
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>Independent Ownership</strong>Game contract is owned independently from the token contract — isolated permissions.</p>
+            </div>
+            <div class="security-item reveal">
+                <div class="check">✓</div>
+                <p><strong>BASE Network</strong>Built on Coinbase's BASE L2 — battle-tested infrastructure with sub-cent transaction fees.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMMUNITY / SOCIAL -->
+    <section id="community">
+        <div class="section-header reveal">
+            <span class="section-label">Join the Movement</span>
+            <h2 class="section-title">Community</h2>
+        </div>
+        <div class="social-grid">
+            <a href="https://x.com/Base_Tetris" target="_blank" class="social-card twitter reveal">
+                <span class="social-icon">𝕏</span>
+                <h3>Twitter / X</h3>
+                <p>Follow for launch announcements, gameplay highlights, token updates, and community competitions.</p>
+                <span class="social-badge">@Base_Tetris</span>
+            </a>
+            <a href="YOUR_TELEGRAM_LINK" target="_blank" class="social-card telegram reveal">
+                <span class="social-icon">✈️</span>
+                <h3>Telegram</h3>
+                <p>Join the main community chat. Ask questions, share scores, and stay ahead of every announcement.</p>
+                <span class="social-badge">Join Group</span>
+                <span class="placeholder-note">⚠ REPLACE YOUR_TELEGRAM_LINK WITH REAL URL</span>
+            </a>
+            <a href="YOUR_DISCORD_LINK" target="_blank" class="social-card discord reveal">
+                <span class="social-icon">💬</span>
+                <h3>Discord</h3>
+                <p>Dedicated channels for gameplay strategy, token discussion, dev updates, and leaderboard competitions.</p>
+                <span class="social-badge">Join Server</span>
+                <span class="placeholder-note">⚠ REPLACE YOUR_DISCORD_LINK WITH REAL URL</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="cta">
+        <div class="section-header reveal">
+            <h2 class="cta-title">
+                Ready to<br>
+                <span class="highlight">Stack Blocks</span><br>
+                & Earn?
+            </h2>
+        </div>
+        <div class="hero-buttons reveal">
+            <a href="#" class="btn-primary" style="font-size:15px; padding:20px 48px;">⚡ Launch Game</a>
+            <a href="https://basescan.org/address/0xCde2B7B1b5d0CD62FC75E137b1e5521465a9E67D" target="_blank" class="btn-secondary" style="font-size:15px; padding:20px 48px;">View Contract</a>
+        </div>
+        <p style="font-family:'Space Mono',monospace; font-size:10px; color:rgba(238,242,255,0.2); margin-top:40px; letter-spacing:2px; text-transform:uppercase;">
+            Built on BASE · Powered by bTetris · Deflationary by Design
+        </p>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-logo">b<span>Tetris</span></div>
+        <ul class="footer-links">
+            <li><a href="https://basescan.org/address/0xCde2B7B1b5d0CD62FC75E137b1e5521465a9E67D" target="_blank">BaseScan</a></li>
+            <li><a href="https://x.com/Base_Tetris" target="_blank">Twitter / X</a></li>
+            <li><a href="YOUR_TELEGRAM_LINK" target="_blank">Telegram</a></li>
+            <li><a href="YOUR_DISCORD_LINK" target="_blank">Discord</a></li>
+            <li><a href="#tokenomics">Tokenomics</a></li>
+            <li><a href="#security">Security</a></li>
+        </ul>
+        <p class="footer-copy">© 2024 BASE Tetris · bTetris · All burns are forever.</p>
+    </footer>
+
+    <script>
+        // Scroll reveal
+        const reveals = document.querySelectorAll('.reveal');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, i) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => entry.target.classList.add('visible'), i * 80);
+                }
+            });
+        }, { threshold: 0.1 });
+        reveals.forEach(el => observer.observe(el));
+
+        // Copy contract
+        function copyContract() {
+            navigator.clipboard.writeText('0xCde2B7B1b5d0CD62FC75E137b1e5521465a9E67D');
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // Animated stat counters
+        function animateCounter(el, target, suffix = '') {
+            let start = 0;
+            const duration = 1500;
+            const step = (timestamp) => {
+                if (!start) start = timestamp;
+                const progress = Math.min((timestamp - start) / duration, 1);
+                const val = Math.floor(progress * target);
+                el.textContent = val.toLocaleString() + suffix;
+                if (progress < 1) requestAnimationFrame(step);
+                else el.textContent = target.toLocaleString() + suffix;
+            };
+            requestAnimationFrame(step);
+        }
+    </script>
+</body>
+</html>
